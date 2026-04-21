@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>精算麻雀</title>
+<style>
+  :root {
+    --bg: #1a1a2e;
+    --panel: #16213e;
+    --panel2: #0f3460;
+    --gold: #f5a623;
+    --text: #eaeaea;
+    --muted: #8892a4;
+    --green-col: #4caf8a;
+    --active-border: #00bfff;
+    --active-bg: #003855;
+    --num-btn: #1e3a5f;
+    --border: #2a3a5a;
+    --total-plus: #4caaff;
+    --total-minus: #ff6b6b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: var(--bg); color: var(--text);
+    font-family: 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+    height: 100%; width: 100%; overflow: hidden;
+  }
+
+  #app {
+    display: flex; flex-direction: column;
+    height: 100vh; width: 100vw;
+    overflow: hidden; padding: 4px; gap: 4px;
+  }
+
+  /* 上段 */
+  #top-row { display: flex; flex-direction: row; gap: 4px; flex: 1; min-height: 0; }
+
+  /* 表エリア */
+  #table-area {
+    flex: 1; min-width: 0;
+    display: flex; flex-direction: column;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 8px; overflow: hidden;
+  }
+  #thead-wrap { flex-shrink: 0; }
+  #tbody-wrap { flex: 1; overflow-y: auto; overflow-x: hidden; }
+
+  table {
+    width: 100%; border-collapse: collapse;
+    font-size: 13px; table-layout: fixed;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    text-align: right; padding: 2px 4px;
+    white-space: nowrap; overflow: hidden;
+  }
+
+  /* 列幅定義
+     行番号: 24px
+     ABCDE:  各 52px（▲999 が収まる幅）
+     場代:   44px
+     差異:   44px
+     → 合計固定部: 24+44+44=112, ABCDE: 5×52=260, total=372px
+     残りは flex で自動調整される（table-area の flex:1 に収まる）
+  */
+  .col-no  { width: 24px; }
+  .col-pl  { width: 52px; }
+  .col-bd  { width: 44px; }
+  .col-dif { width: 44px; }
+
+  th {
+    background: var(--panel2); color: var(--gold);
+    font-weight: 700; font-size: 12px; text-align: center;
+  }
+  /* 行番号列 */
+  td:first-child, th:first-child {
+    text-align: center; color: var(--muted); font-size: 11px;
+  }
+
+  /* ヘッダー名前ボタン */
+  th button.name-btn {
+    background: none; border: none; color: var(--gold);
+    font-weight: 700; font-size: 12px;
+    cursor: pointer; padding: 0; width: 100%;
+    text-align: center; font-family: inherit;
+    -webkit-tap-highlight-color: transparent;
+  }
+  th button.name-btn:active { opacity: 0.6; }
+
+  td.sc { cursor: pointer; transition: background 0.12s; }
+  td.sc:hover { background: rgba(0,191,255,0.07); }
+  td.sc.active {
+    background: var(--active-bg) !important;
+    outline: 2px solid var(--active-border); outline-offset: -2px;
+  }
+
+  tr.tr-total td { background: var(--panel2); font-weight: 700; color: var(--gold); border-top: 2px solid var(--gold); }
+  tr.tr-chip  td { background: #1a3a4a; color: #7dd3ea; }
+
+  .c-bd   { background: rgba(76,175,138,0.13); color: var(--green-col); }
+  th.c-bd { background: rgba(76,175,138,0.28); color: var(--green-col); }
+  .c-e    { background: rgba(255,255,255,0.03); }
+  .c-dif  { color: #ff8a80; font-size: 11px; text-align: right; }
+
+  td.bd-auto { opacity: 0.5; }
+
+  .pos  { color: #7dd3ea; }
+  .neg  { color: #ff8a80; }
+  .zero { color: var(--muted); }
+
+  /* テンキー */
+  #numpad {
+    width: 154px; flex-shrink: 0;
+    display: flex; flex-direction: column; gap: 4px;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 8px; padding: 6px;
+  }
+  #np-label { font-size: 11px; color: var(--active-border); text-align: center; font-weight: 700; min-height: 15px; }
+  #np-disp {
+    background: var(--num-btn); border: 1px solid var(--border);
+    border-radius: 5px; padding: 3px 8px;
+    text-align: right; font-size: 17px; font-weight: 700;
+    color: var(--text); min-height: 30px;
+  }
+  #np-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 4px; flex: 1; }
+  .nb {
+    background: var(--num-btn); border: 1px solid var(--border);
+    border-radius: 6px; color: var(--text);
+    font-size: 17px; font-weight: 700;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    user-select: none; -webkit-tap-highlight-color: transparent;
+    transition: background 0.1s, transform 0.08s;
+  }
+  .nb:active { background: #2a5080; transform: scale(0.92); }
+  .nb-neg { background: #1a2a3a; color: #7dd3ea; border-color: #2a4a6a; font-size: 14px; }
+  .nb-clr { background: #2a1a3a; color: #c084fc; border-color: #4a2a5a; font-size: 15px; font-weight: 900; }
+
+  /* 下段 */
+  #bottom-row { display: flex; flex-direction: row; gap: 4px; flex-shrink: 0; }
+
+  /* TOTAL */
+  #total-block {
+    background: var(--panel2); border: 1.5px solid var(--gold);
+    border-radius: 8px; padding: 5px 8px;
+    display: flex; flex-direction: column; gap: 4px; min-width: 190px;
+  }
+  .ttl-header { display: flex; align-items: center; justify-content: space-between; }
+  .ttl-title { font-size: 10px; color: var(--gold); font-weight: 700; letter-spacing: 1px; }
+  #total-diff {
+    font-size: 11px; font-weight: 900;
+    padding: 1px 6px; border-radius: 4px;
+    background: rgba(0,0,0,0.25); border: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  #total-diff.pos  { color: var(--total-plus); }
+  #total-diff.neg  { color: var(--total-minus); }
+  #total-diff.zero { color: var(--muted); }
+  #total-disp { display: flex; gap: 4px; }
+  .tc {
+    background: var(--panel); border-radius: 6px;
+    padding: 3px 5px; text-align: center; flex: 1; border: 1px solid var(--border);
+  }
+  .tc-n { font-size: 9px; color: var(--muted); }
+  .tc-v { font-size: 13px; font-weight: 900; }
+  .tc-v.pos  { color: var(--total-plus); }
+  .tc-v.neg  { color: var(--total-minus); }
+  .tc-v.zero { color: var(--muted); }
+
+  /* パラメータ */
+  #params-block {
+    flex: 1; background: var(--panel); border: 1px solid var(--border);
+    border-radius: 8px; padding: 5px 10px;
+    display: grid; grid-template-columns: 1fr 1fr;
+    grid-template-rows: repeat(3, 1fr);
+    gap: 3px 16px; align-items: center;
+  }
+  .pr { display: flex; align-items: center; gap: 4px; }
+  .pl { color: var(--muted); white-space: nowrap; font-size: 11px; min-width: 56px; }
+  .pv {
+    background: var(--num-btn); border: 1.5px solid var(--border);
+    border-radius: 4px; padding: 2px 5px;
+    font-size: 12px; font-weight: 700; color: var(--text);
+    min-width: 54px; text-align: right;
+    cursor: pointer; transition: border-color 0.15s, background 0.15s;
+  }
+  .pv.active { border-color: var(--active-border); background: var(--active-bg); box-shadow: 0 0 0 2px rgba(0,191,255,0.22); }
+  .pv.ro     { color: var(--gold); cursor: default; border-color: rgba(245,166,35,0.3); }
+  .pu { color: var(--muted); font-size: 10px; }
+
+  /* 名前入力ダイアログ */
+  #name-dialog {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.65);
+    align-items: center; justify-content: center;
+    z-index: 100;
+  }
+  #name-dialog.open { display: flex; }
+  #name-box {
+    background: var(--panel2); border: 2px solid var(--active-border);
+    border-radius: 12px; padding: 16px;
+    display: flex; flex-direction: column; gap: 10px;
+    min-width: 220px;
+  }
+  #name-title { color: var(--active-border); font-size: 13px; font-weight: 700; text-align: center; }
+  #name-preview {
+    background: var(--num-btn); border: 1px solid var(--border);
+    border-radius: 6px; padding: 4px 10px;
+    text-align: center; font-size: 20px; font-weight: 900;
+    color: var(--text); min-height: 36px; letter-spacing: 2px;
+  }
+  #name-keyboard {
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px;
+  }
+  .nk-btn {
+    background: var(--num-btn); border: 1px solid var(--border);
+    border-radius: 5px; color: var(--text); font-size: 12px;
+    padding: 5px 2px; cursor: pointer; text-align: center;
+    user-select: none; -webkit-tap-highlight-color: transparent;
+    font-family: inherit;
+    transition: background 0.1s;
+  }
+  .nk-btn:active { background: #2a5080; }
+  .nk-del {
+    background: #3a1a1a; color: #ff8a80; border-color: #5a2a2a;
+    grid-column: span 2;
+  }
+  .nk-ok {
+    background: #0a3a6a; color: #00bfff; border-color: #00bfff;
+    font-weight: 900; grid-column: span 3;
+  }
+  .nk-ok:active { background: #1a5a8a; }
+
+  ::-webkit-scrollbar { width: 3px; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- 上段 -->
+  <div id="top-row">
+    <div id="table-area">
+      <!-- 固定ヘッダー -->
+      <div id="thead-wrap">
+        <table>
+          <colgroup>
+            <col class="col-no">
+            <col class="col-pl"><col class="col-pl"><col class="col-pl">
+            <col class="col-pl"><col class="col-pl">
+            <col class="col-bd"><col class="col-dif">
+          </colgroup>
+          <thead>
+            <tr id="header-row">
+              <th></th>
+              <!-- 名前ヘッダーはJS生成 -->
+              <th class="c-bd">場代</th>
+              <th class="c-dif" style="color:var(--muted);font-size:10px">差異</th>
+            </tr>
+          </thead>
+        </table>
+      </div>
+      <!-- スクロールボディ -->
+      <div id="tbody-wrap">
+        <table>
+          <colgroup>
+            <col class="col-no">
+            <col class="col-pl"><col class="col-pl"><col class="col-pl">
+            <col class="col-pl"><col class="col-pl">
+            <col class="col-bd"><col class="col-dif">
+          </colgroup>
+          <tbody id="s-body"></tbody>
+          <tfoot id="s-foot"></tfoot>
+        </table>
+      </div>
+    </div>
+
+    <!-- テンキー -->
+    <div id="numpad">
+      <div id="np-label">—</div>
+      <div id="np-disp">—</div>
+      <div id="np-grid">
+        <button class="nb" data-v="7">7</button>
+        <button class="nb" data-v="8">8</button>
+        <button class="nb" data-v="9">9</button>
+        <button class="nb" data-v="4">4</button>
+        <button class="nb" data-v="5">5</button>
+        <button class="nb" data-v="6">6</button>
+        <button class="nb" data-v="1">1</button>
+        <button class="nb" data-v="2">2</button>
+        <button class="nb" data-v="3">3</button>
+        <button class="nb nb-neg" data-v="neg">▲</button>
+        <button class="nb" data-v="0">0</button>
+        <button class="nb nb-clr" data-v="clr">C</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 下段 -->
+  <div id="bottom-row">
+    <div id="total-block">
+      <div class="ttl-header">
+        <div class="ttl-title">TOTAL</div>
+        <div id="total-diff">—</div>
+      </div>
+      <div id="total-disp"></div>
+    </div>
+    <div id="params-block">
+      <div class="pr"><span class="pl">1P＝</span>     <span class="pv" id="pv-rate">100</span>        <span class="pu">円</span></div>
+      <div class="pr"><span class="pl">チップ＝</span> <span class="pv" id="pv-cr">500</span>           <span class="pu">円</span></div>
+      <div class="pr"><span class="pl">場代支払</span>  <span class="pv" id="pv-pay">0</span>             <span class="pu">円</span></div>
+      <div class="pr"><span class="pl">場代積立</span>  <span class="pv ro" id="pv-tsumi">—</span>        <span class="pu">円</span></div>
+      <div class="pr"><span class="pl">場代人数</span>  <span class="pv" id="pv-nin">4</span>             <span class="pu">人</span></div>
+      <div class="pr"><span class="pl">場代負担</span>  <span class="pv ro" id="pv-futan">—</span>        <span class="pu">円</span></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- 名前入力ダイアログ -->
+<div id="name-dialog">
+  <div id="name-box">
+    <div id="name-title">名前を入力（3文字まで）</div>
+    <div id="name-preview"></div>
+    <div id="name-keyboard"></div>
+  </div>
+</div>
+
+<script>
+// ===== STATE =====
+const ROWS = 12;
+const PL   = ['A','B','C','D','E'];
+
+const st = {
+  sc:       {},
+  chips:    {A:0,B:0,C:0,D:0,E:0},
+  bd:       {},
+  bdManual: {},
+  names:    {A:'いのう',B:'B',C:'C',D:'D',E:'E'},
+  pay: 0, nin: 4, rate: 100, cr: 500,
+  act:  null,
+  buf:  '',
+  // 名前編集
+  editingName: null,  // 'A'～'E'
+  nameBuf: ''
+};
+
+for(let r=1;r<=ROWS;r++){
+  st.sc[r]       = {A:null,B:null,C:null,D:null,E:null};
+  st.bd[r]       = null;
+  st.bdManual[r] = false;
+}
+
+// ===== HELPERS =====
+function fmt(v){
+  if(v===null||v===undefined) return '';
+  const n=Number(v); if(isNaN(n)) return '';
+  return n<0 ? '▲'+Math.abs(n) : String(n);
+}
+function cls(v){
+  if(v===null||v===undefined) return '';
+  const n=Number(v); return n>0?'pos':n<0?'neg':'zero';
+}
+function sumP(p){ let s=0; for(let r=1;r<=ROWS;r++){const v=st.sc[r][p];if(v!==null)s+=v;} return s; }
+function sumBd(){ let s=0; for(let r=1;r<=ROWS;r++){const v=st.bd[r];if(v!==null)s+=v;} return s; }
+function rowHasScore(r){ return PL.some(p=>st.sc[r][p]!==null); }
+function rowDiff(r){
+  const vs=PL.map(p=>st.sc[r][p]).filter(v=>v!==null);
+  if(!vs.length) return null;
+  const scoreSum=vs.reduce((a,b)=>a+b,0);
+  const bd=st.bd[r]??0;
+  // 場代は正の費用。スコア合計に加えると収支のズレが出る
+  // 例: A=10,B=-15 合計=-5, 場代=5 → -5+5=0（ちょうど収支が合っている）
+  return scoreSum + bd;
+}
+function calcFutan(){
+  const tsumi=sumBd()*st.rate;
+  const raw=(st.pay-tsumi)/(st.nin||1);
+  const r=st.rate||1;
+  return Math.ceil(raw/r)*r;
+}
+function isAct(t){
+  const a=st.act; if(!a||a.type!==t.type) return false;
+  if(t.type==='sc')   return a.row===t.row&&a.p===t.p;
+  if(t.type==='chip') return a.p===t.p;
+  if(t.type==='bd')   return a.row===t.row;
+  if(t.type==='prm')  return a.k===t.k;
+  return false;
+}
+
+// ===== 場代自動コピー =====
+function autoFillBd(){
+  const base=st.bd[1];
+  for(let r=2;r<=ROWS;r++){
+    if(st.bdManual[r]) continue;
+    st.bd[r] = rowHasScore(r) ? base : null;
+  }
+}
+
+// ===== COMMIT =====
+function commitCurrent(){
+  const t=st.act; if(!t) return;
+  const b=st.buf;
+  const val=(b===''||b==='-')?null:parseInt(b,10);
+  const n=val??0;
+  if(t.type==='sc'){
+    st.sc[t.row][t.p]=val;
+    autoFillBd();
+  } else if(t.type==='chip'){
+    st.chips[t.p]=n;
+  } else if(t.type==='bd'){
+    st.bd[t.row]=val;
+    st.bdManual[t.row]=(val!==null);
+    autoFillBd();
+  } else if(t.type==='prm'){
+    if     (t.k==='rate') st.rate=n||1;
+    else if(t.k==='cr')   st.cr=n||1;
+    else if(t.k==='pay')  st.pay=n;
+    else if(t.k==='nin')  st.nin=n||1;
+  }
+}
+
+// ===== ACTIVATE =====
+function activate(t){
+  if(isAct(t)) return;
+  commitCurrent();
+  st.act=t;
+  // 常に空バッファで開始（上書き入力）
+  st.buf='';
+  render();
+}
+
+// ===== RENDER =====
+function render(){
+  renderHeader();
+  renderBody();
+  renderFoot();
+  renderParams();
+  renderTotal();
+  updateDisp();
+  updateLabel();
+}
+
+function renderHeader(){
+  const hr=document.getElementById('header-row');
+  // 既存の名前th（2〜6番目）を作り直す
+  // th[0]=空, th[1..5]=名前, th[6]=場代, th[7]=差異
+  // まず名前列のthを削除して再挿入
+  while(hr.children.length > 3) hr.removeChild(hr.children[1]);
+  // children: [空, 場代, 差異] → 名前を1〜5に挿入
+  const refTh = hr.children[1]; // 場代th
+  PL.forEach(p=>{
+    const th=document.createElement('th');
+    if(p==='E') th.className='c-e';
+    const btn=document.createElement('button');
+    btn.className='name-btn';
+    btn.textContent=st.names[p];
+    btn.addEventListener('click',()=>openNameDialog(p));
+    th.appendChild(btn);
+    hr.insertBefore(th, refTh);
+  });
+}
+
+function renderBody(){
+  const tb=document.getElementById('s-body');
+  tb.innerHTML='';
+  for(let r=1;r<=ROWS;r++){
+    const tr=document.createElement('tr');
+    const tn=document.createElement('td'); tn.textContent=r; tr.appendChild(tn);
+
+    PL.forEach(p=>{
+      const td=document.createElement('td');
+      td.className='sc'+(p==='E'?' c-e':'');
+      const v=st.sc[r][p];
+      td.textContent=fmt(v);
+      if(v!==null) td.classList.add(cls(v));
+      if(isAct({type:'sc',row:r,p})) td.classList.add('active');
+      td.addEventListener('click',()=>activate({type:'sc',row:r,p}));
+      tr.appendChild(td);
+    });
+
+    // 場代
+    const tbd=document.createElement('td');
+    tbd.className='sc c-bd';
+    const bdv=st.bd[r];
+    if(isAct({type:'bd',row:r})){
+      const b=st.buf;
+      tbd.textContent=(b===''||b==='-')?'':(()=>{const n=parseInt(b,10);return isNaN(n)?'':fmt(n);})();
+      tbd.classList.add('active');
+    } else {
+      tbd.textContent=bdv!==null?fmt(bdv):'';
+      if(r>1&&!st.bdManual[r]&&bdv!==null) tbd.classList.add('bd-auto');
+    }
+    tbd.addEventListener('click',()=>activate({type:'bd',row:r}));
+    tr.appendChild(tbd);
+
+    // 差異
+    const tdif=document.createElement('td'); tdif.className='c-dif';
+    const d=rowDiff(r);
+    if(d!==null&&d!==0){ tdif.textContent=fmt(d); tdif.classList.add(cls(d)); }
+    tr.appendChild(tdif);
+
+    tb.appendChild(tr);
+  }
+}
+
+function renderFoot(){
+  const tf=document.getElementById('s-foot'); tf.innerHTML='';
+
+  // 合計行
+  const tr1=document.createElement('tr'); tr1.className='tr-total';
+  const t0=document.createElement('td'); t0.textContent='計'; t0.style.textAlign='center'; tr1.appendChild(t0);
+  PL.forEach(p=>{
+    const td=document.createElement('td');
+    if(p==='E') td.className='c-e';
+    const s=sumP(p); td.textContent=fmt(s); td.classList.add(cls(s));
+    tr1.appendChild(td);
+  });
+  const tb1=document.createElement('td'); tb1.className='c-bd'; tb1.textContent=sumBd()||''; tr1.appendChild(tb1);
+  const td1=document.createElement('td'); td1.className='c-dif';
+  const scoreTotal=PL.map(p=>sumP(p)).reduce((a,b)=>a+b,0);
+  const tot=scoreTotal + sumBd();
+  if(tot){ td1.textContent=fmt(tot); td1.classList.add(cls(tot)); }
+  tr1.appendChild(td1);
+  tf.appendChild(tr1);
+
+  // チップ行
+  const tr2=document.createElement('tr'); tr2.className='tr-chip';
+  const tc=document.createElement('td'); tc.textContent='チップ'; tc.style.textAlign='center'; tr2.appendChild(tc);
+  PL.forEach(p=>{
+    const td=document.createElement('td');
+    td.className='sc'+(p==='E'?' c-bd':'');
+    const v=st.chips[p];
+    td.textContent=v?fmt(v):'';
+    if(v) td.classList.add(cls(v));
+    if(isAct({type:'chip',p})) td.classList.add('active');
+    td.addEventListener('click',()=>activate({type:'chip',p}));
+    tr2.appendChild(td);
+  });
+  // 場代列（空）
+  tr2.appendChild(document.createElement('td'));
+  // 差異列：チップA〜E合計
+  const chipSum = PL.reduce((s,p)=>s+st.chips[p], 0);
+  const tdChipDif = document.createElement('td'); tdChipDif.className='c-dif';
+  if(chipSum){ tdChipDif.textContent=fmt(chipSum); tdChipDif.classList.add(cls(chipSum)); }
+  tr2.appendChild(tdChipDif);
+  tf.appendChild(tr2);
+}
+
+function renderParams(){
+  const tsumi=sumBd()*st.rate;
+  const futan=calcFutan();
+  document.getElementById('pv-rate').textContent  = st.rate.toLocaleString();
+  document.getElementById('pv-cr').textContent    = st.cr.toLocaleString();
+  document.getElementById('pv-pay').textContent   = st.pay.toLocaleString();
+  document.getElementById('pv-tsumi').textContent = tsumi.toLocaleString();
+  document.getElementById('pv-nin').textContent   = st.nin;
+  document.getElementById('pv-futan').textContent = futan.toLocaleString();
+  ['rate','cr','pay','nin'].forEach(k=>{
+    document.getElementById('pv-'+k).classList.toggle('active',isAct({type:'prm',k}));
+  });
+}
+
+function renderTotal(){
+  const futan=calcFutan()??0;
+  const disp=document.getElementById('total-disp'); disp.innerHTML='';
+  let totalSum=0;
+  let visibleCount=0;
+  PL.forEach(p=>{
+    const hasScore = Object.values(st.sc).some(row=>row[p]!==null);
+    const hasChip  = st.chips[p]!==0;
+    if(!hasScore && !hasChip) return;
+    const v=sumP(p)*st.rate + st.chips[p]*st.cr - futan;
+    totalSum+=v;
+    visibleCount++;
+    const d=document.createElement('div'); d.className='tc';
+    d.innerHTML=`<div class="tc-n">${st.names[p]}</div>`+
+      `<div class="tc-v ${cls(v)}">${v===0?'0':v<0?'▲'+Math.abs(v).toLocaleString():'+'+v.toLocaleString()}</div>`;
+    disp.appendChild(d);
+  });
+  // TOTAL差異：各人合計 + 場代支払
+  const diffVal = totalSum + st.pay;
+  const diffEl=document.getElementById('total-diff');
+  if(visibleCount===0){
+    diffEl.textContent='—'; diffEl.className='';
+  } else {
+    const label = diffVal===0?'差異 0':
+      diffVal<0?'差異 ▲'+Math.abs(diffVal).toLocaleString():
+      '差異 +'+diffVal.toLocaleString();
+    diffEl.textContent=label;
+    diffEl.className=cls(diffVal);
+  }
+}
+
+function updateLabel(){
+  const el=document.getElementById('np-label');
+  const t=st.act;
+  if(!t){ el.textContent='—'; return; }
+  if(t.type==='sc')        el.textContent=`${t.row}局 ${st.names[t.p]}`;
+  else if(t.type==='chip') el.textContent=`チップ ${st.names[t.p]}`;
+  else if(t.type==='bd')   el.textContent=`場代 ${t.row}局`;
+  else if(t.type==='prm'){ const m={rate:'1P単価',cr:'チップ単価',pay:'場代支払',nin:'場代人数'}; el.textContent=m[t.k]||t.k; }
+}
+
+function updateDisp(){
+  const el=document.getElementById('np-disp');
+  const b=st.buf;
+  if(!b){ el.textContent='—'; return; }
+  if(b==='-'){ el.textContent='▲'; return; }
+  const n=parseInt(b,10);
+  el.textContent=isNaN(n)?'—':n<0?'▲'+Math.abs(n):String(n);
+}
+
+// ===== NUMPAD =====
+document.getElementById('np-grid').addEventListener('click',e=>{
+  const btn=e.target.closest('.nb'); if(!btn) return;
+  const v=btn.dataset.v;
+  const b=st.buf;
+  if(v==='clr'){ st.buf=''; updateDisp(); renderBody(); return; }
+  if(v==='neg'){
+    if(!st.act) return;
+    st.buf=b.startsWith('-')?b.slice(1):'-'+b;
+    updateDisp(); renderBody(); return;
+  }
+  if(!st.act) return;
+  if(b===''||b==='0')        st.buf=v;
+  else if(b==='-'||b==='-0') st.buf='-'+v;
+  else                        st.buf=b+v;
+  updateDisp(); renderBody();
+});
+
+// ===== PARAM CLICK =====
+[['pv-rate','rate'],['pv-cr','cr'],['pv-pay','pay'],['pv-nin','nin']].forEach(([id,k])=>{
+  document.getElementById(id).addEventListener('click',()=>activate({type:'prm',k}));
+});
+
+// ===== 名前ダイアログ =====
+// ひらがな＋英数の簡易キーボード
+const NAME_KEYS = [
+  'あ','い','う','え','お',
+  'か','き','く','け','こ',
+  'さ','し','す','せ','そ',
+  'た','ち','つ','て','と',
+  'な','に','ぬ','ね','の',
+  'は','ひ','ふ','へ','ほ',
+  'ま','み','む','め','も',
+  'や','ゆ','よ','ら','り',
+  'る','れ','ろ','わ','を',
+  'ん','ー','゛','A','B',
+  'C','D','E','1','2',
+  '3','4','5','6','7',
+  '8','9','0'
+];
+
+function openNameDialog(p){
+  // アクティブセルを確定してから開く
+  commitCurrent();
+  st.act=null;
+  st.buf='';
+
+  st.editingName=p;
+  st.nameBuf=st.names[p]==='A'||st.names[p]==='B'||st.names[p]==='C'||st.names[p]==='D'||st.names[p]==='E'
+    ? (st.names[p].length===1&&['A','B','C','D','E'].includes(st.names[p]) ? '' : st.names[p])
+    : st.names[p];
+  // デフォルトA〜Eなら空白から入力させる
+  st.nameBuf = ['A','B','C','D','E'].includes(st.names[p]) ? '' : st.names[p];
+
+  buildNameKeyboard();
+  updateNamePreview();
+  document.getElementById('name-dialog').classList.add('open');
+  render();
+}
+
+function buildNameKeyboard(){
+  const kb=document.getElementById('name-keyboard');
+  kb.innerHTML='';
+
+  const DAKUTEN={'か':'が','き':'ぎ','く':'ぐ','け':'げ','こ':'ご',
+    'さ':'ざ','し':'じ','す':'ず','せ':'ぜ','そ':'ぞ',
+    'た':'だ','ち':'ぢ','つ':'づ','て':'で','と':'ど',
+    'は':'ば','ひ':'び','ふ':'ぶ','へ':'べ','ほ':'ぼ'};
+
+  NAME_KEYS.forEach(k=>{
+    const btn=document.createElement('button');
+    btn.className='nk-btn';
+    btn.textContent=k;
+    btn.dataset.key=k;
+    kb.appendChild(btn);
+  });
+
+  // 削除・OK
+  const delBtn=document.createElement('button');
+  delBtn.className='nk-btn nk-del'; delBtn.textContent='⌫ 削除';
+  delBtn.dataset.key='DEL';
+  kb.appendChild(delBtn);
+
+  const okBtn=document.createElement('button');
+  okBtn.className='nk-btn nk-ok'; okBtn.textContent='OK';
+  okBtn.dataset.key='OK';
+  kb.appendChild(okBtn);
+
+  // イベントは親にひとつだけ
+  kb.addEventListener('click', e=>{
+    const btn=e.target.closest('[data-key]'); if(!btn) return;
+    const k=btn.dataset.key;
+    if(k==='OK'){
+      const name=st.nameBuf.trim()||st.editingName;
+      st.names[st.editingName]=name;
+      closeNameDialog(); return;
+    }
+    if(k==='DEL'){
+      st.nameBuf=st.nameBuf.slice(0,-1);
+      updateNamePreview(); return;
+    }
+    // 濁点：文字数を増やさないので3文字でも変換可
+    if(k==='\u309b' && st.nameBuf.length>0){
+      const last=st.nameBuf.slice(-1);
+      if(DAKUTEN[last]){
+        st.nameBuf=st.nameBuf.slice(0,-1)+DAKUTEN[last];
+        updateNamePreview(); return;
+      }
+    }
+    if(st.nameBuf.length>=3) return;
+    st.nameBuf+=k;
+    updateNamePreview();
+  });
+}
+
+function updateNamePreview(){
+  document.getElementById('name-preview').textContent=st.nameBuf||'　';
+}
+
+function closeNameDialog(){
+  st.editingName=null;
+  document.getElementById('name-dialog').classList.remove('open');
+  render();
+}
+
+// ダイアログ外タップで閉じる
+document.getElementById('name-dialog').addEventListener('click',e=>{
+  if(e.target===document.getElementById('name-dialog')) closeNameDialog();
+});
+
+// ===== INIT =====
+render();
+</script>
+</body>
+</html>
