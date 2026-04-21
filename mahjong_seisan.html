@@ -123,11 +123,11 @@
   .neg  { color: #ff8a80; }
   .zero { color: var(--muted); }
 
-  /* テンキー：画面幅の18%固定。横向きスマホでも確実に収まる */
+  /* テンキー：5列グリッド（右2列ダミー）で実ボタンが左に寄る */
   #numpad {
-    width: 18vw;
-    min-width: 80px;
-    max-width: 120px;
+    width: 28vw;
+    min-width: 120px;
+    max-width: 180px;
     flex-shrink: 0;
     display: flex; flex-direction: column; gap: 3px;
     background: var(--panel); border: 1px solid var(--border);
@@ -141,7 +141,9 @@
     text-align: right; font-size: 15px; font-weight: 700;
     color: var(--text); min-height: 26px;
   }
-  #np-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 3px; flex: 1; }
+  #np-grid { display: grid; grid-template-columns: repeat(5,1fr); gap: 3px; flex: 1; }
+  /* 右2列はダミー余白（透明・タップ不可） */
+  .nb-dummy { background: transparent; border: none; pointer-events: none; }
   .nb {
     background: var(--num-btn); border: 1px solid var(--border);
     border-radius: 6px; color: var(--text);
@@ -302,15 +304,22 @@
         <button class="nb" data-v="7">7</button>
         <button class="nb" data-v="8">8</button>
         <button class="nb" data-v="9">9</button>
+        <span class="nb-dummy"></span><span class="nb-dummy"></span>
+
         <button class="nb" data-v="4">4</button>
         <button class="nb" data-v="5">5</button>
         <button class="nb" data-v="6">6</button>
+        <span class="nb-dummy"></span><span class="nb-dummy"></span>
+
         <button class="nb" data-v="1">1</button>
         <button class="nb" data-v="2">2</button>
         <button class="nb" data-v="3">3</button>
+        <span class="nb-dummy"></span><span class="nb-dummy"></span>
+
         <button class="nb nb-neg" data-v="neg">▲</button>
         <button class="nb" data-v="0">0</button>
         <button class="nb nb-clr" data-v="clr">C</button>
+        <span class="nb-dummy"></span><span class="nb-dummy"></span>
       </div>
     </div>
   </div>
