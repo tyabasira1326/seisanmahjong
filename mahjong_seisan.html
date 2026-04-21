@@ -39,7 +39,7 @@
     display: flex; flex-direction: column;
     height: 100dvh; width: 100dvw;
     overflow: hidden;
-    padding: 8px 16px 8px 12px;
+    padding: 8px 8px 8px 8px;
     gap: 5px;
   }
 
@@ -78,10 +78,10 @@
      → 合計固定部: 24+44+44=112, ABCDE: 5×52=260, total=372px
      残りは flex で自動調整される（table-area の flex:1 に収まる）
   */
-  .col-no  { width: 22px; }
-  .col-pl  { width: 46px; }
-  .col-bd  { width: 40px; }
-  .col-dif { width: 40px; }
+  .col-no  { width: 20px; }
+  .col-pl  { width: 36px; }
+  .col-bd  { width: 36px; }
+  .col-dif { width: 36px; }
 
   th {
     background: var(--panel2); color: var(--gold);
@@ -123,9 +123,11 @@
   .neg  { color: #ff8a80; }
   .zero { color: var(--muted); }
 
-  /* テンキー：画面幅・高さ両方に対してmin()で確実に収める */
+  /* テンキー：画面幅の18%固定。横向きスマホでも確実に収まる */
   #numpad {
-    width: min(110px, 28vw, calc(100dvh * 0.28));
+    width: 18vw;
+    min-width: 80px;
+    max-width: 120px;
     flex-shrink: 0;
     display: flex; flex-direction: column; gap: 3px;
     background: var(--panel); border: 1px solid var(--border);
@@ -653,13 +655,27 @@ document.getElementById('np-grid').addEventListener('click',e=>{
   if(v==='neg'){
     if(!st.act) return;
     st.buf=b.startsWith('-')?b.slice(1):'-'+b;
-    updateDisp(); renderBody(); return;
+    updateDisp(); render(); return;
   }
   if(!st.act) return;
   if(b===''||b==='0')        st.buf=v;
   else if(b==='-'||b==='-0') st.buf='-'+v;
   else                        st.buf=b+v;
-  updateDisp(); renderBody();
+  // バッファの現在値を即時ステートに反映して表示
+  const t=st.act;
+  const cur=st.buf;
+  const val=(cur===''||cur==='-')?null:parseInt(cur,10);
+  if(t.type==='sc'){ st.sc[t.row][t.p]=val; autoFillBd(); }
+  else if(t.type==='chip') st.chips[t.p]=val??0;
+  else if(t.type==='bd'){ st.bd[t.row]=val; if(val!==null) st.bdManual[t.row]=true; autoFillBd(); }
+  else if(t.type==='prm'){
+    const n=val??0;
+    if(t.k==='rate') st.rate=n||1;
+    else if(t.k==='cr') st.cr=n||1;
+    else if(t.k==='pay') st.pay=n;
+    else if(t.k==='nin') st.nin=n||1;
+  }
+  render();
 });
 
 // ===== PARAM CLICK =====
