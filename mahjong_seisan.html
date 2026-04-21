@@ -37,15 +37,18 @@
 
   #app {
     display: flex; flex-direction: column;
-    height: 100dvh;
-    width: 100dvw;
+    height: 100dvh; width: 100dvw;
     overflow: hidden;
-    padding: 10px 10px 10px 10px; /* 外周余白を増やす */
-    gap: 6px;
+    padding: 8px 12px 8px 12px;
+    gap: 5px;
   }
 
-  /* 上段：表の縦幅を抑えて下段を上げる */
-  #top-row { display: flex; flex-direction: row; gap: 6px; height: 190px; flex-shrink: 0; }
+  /* 上段：高さは残り全体から下段を引いた分。min/maxで制御 */
+  #top-row {
+    display: flex; flex-direction: row;
+    gap: 6px;
+    height: 190px; flex-shrink: 0;
+  }
 
   /* 表エリア */
   #table-area {
@@ -120,12 +123,15 @@
   .neg  { color: #ff8a80; }
   .zero { color: var(--muted); }
 
-  /* テンキー */
+  /* テンキー：固定幅をやめ、高さに合わせて自動的に幅が決まるよう aspect-ratio で制御 */
   #numpad {
-    width: 132px; flex-shrink: 0;
+    /* 上段190pxの高さに収まるよう、幅は自動計算。横向きスマホでも安全 */
+    width: min(132px, calc(100dvh * 0.33));
+    flex-shrink: 0;
     display: flex; flex-direction: column; gap: 3px;
     background: var(--panel); border: 1px solid var(--border);
     border-radius: 8px; padding: 5px;
+    overflow: hidden;
   }
   #np-label { font-size: 10px; color: var(--active-border); text-align: center; font-weight: 700; min-height: 13px; }
   #np-disp {
@@ -628,7 +634,23 @@ document.getElementById('np-grid').addEventListener('click',e=>{
   const btn=e.target.closest('.nb'); if(!btn) return;
   const v=btn.dataset.v;
   const b=st.buf;
-  if(v==='clr'){ st.buf=''; updateDisp(); renderBody(); return; }
+  if(v==='clr'){
+    st.buf='';
+    // アクティブセルの値も即時消去
+    const t=st.act;
+    if(t){
+      if(t.type==='sc'){ st.sc[t.row][t.p]=null; autoFillBd(); }
+      else if(t.type==='chip') st.chips[t.p]=0;
+      else if(t.type==='bd'){ st.bd[t.row]=null; st.bdManual[t.row]=false; autoFillBd(); }
+      else if(t.type==='prm'){
+        if(t.k==='rate') st.rate=100;
+        else if(t.k==='cr') st.cr=500;
+        else if(t.k==='pay') st.pay=0;
+        else if(t.k==='nin') st.nin=4;
+      }
+    }
+    render(); return;
+  }
   if(v==='neg'){
     if(!st.act) return;
     st.buf=b.startsWith('-')?b.slice(1):'-'+b;
