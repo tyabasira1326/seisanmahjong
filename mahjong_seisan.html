@@ -37,14 +37,15 @@
 
   #app {
     display: flex; flex-direction: column;
-    /* dvh = ブラウザUI除いた実際の表示高さ。非対応ブラウザはsvhかlvhで代替 */
     height: 100dvh;
     width: 100dvw;
-    overflow: hidden; padding: 4px; gap: 4px;
+    overflow: hidden;
+    padding: 10px 10px 10px 10px; /* 外周余白を増やす */
+    gap: 6px;
   }
 
-  /* 上段：6回戦分が見える固定高さ */
-  #top-row { display: flex; flex-direction: row; gap: 4px; height: 230px; flex-shrink: 0; }
+  /* 上段：表の縦幅を抑えて下段を上げる */
+  #top-row { display: flex; flex-direction: row; gap: 6px; height: 190px; flex-shrink: 0; }
 
   /* 表エリア */
   #table-area {
@@ -74,10 +75,10 @@
      → 合計固定部: 24+44+44=112, ABCDE: 5×52=260, total=372px
      残りは flex で自動調整される（table-area の flex:1 に収まる）
   */
-  .col-no  { width: 24px; }
-  .col-pl  { width: 52px; }
-  .col-bd  { width: 44px; }
-  .col-dif { width: 44px; }
+  .col-no  { width: 22px; }
+  .col-pl  { width: 46px; }
+  .col-bd  { width: 40px; }
+  .col-dif { width: 40px; }
 
   th {
     background: var(--panel2); color: var(--gold);
@@ -121,23 +122,23 @@
 
   /* テンキー */
   #numpad {
-    width: 154px; flex-shrink: 0;
-    display: flex; flex-direction: column; gap: 4px;
+    width: 132px; flex-shrink: 0;
+    display: flex; flex-direction: column; gap: 3px;
     background: var(--panel); border: 1px solid var(--border);
-    border-radius: 8px; padding: 6px;
+    border-radius: 8px; padding: 5px;
   }
-  #np-label { font-size: 11px; color: var(--active-border); text-align: center; font-weight: 700; min-height: 15px; }
+  #np-label { font-size: 10px; color: var(--active-border); text-align: center; font-weight: 700; min-height: 13px; }
   #np-disp {
     background: var(--num-btn); border: 1px solid var(--border);
-    border-radius: 5px; padding: 3px 8px;
-    text-align: right; font-size: 17px; font-weight: 700;
-    color: var(--text); min-height: 30px;
+    border-radius: 5px; padding: 2px 6px;
+    text-align: right; font-size: 15px; font-weight: 700;
+    color: var(--text); min-height: 26px;
   }
-  #np-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 4px; flex: 1; }
+  #np-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 3px; flex: 1; }
   .nb {
     background: var(--num-btn); border: 1px solid var(--border);
     border-radius: 6px; color: var(--text);
-    font-size: 17px; font-weight: 700;
+    font-size: 15px; font-weight: 700;
     cursor: pointer; display: flex; align-items: center; justify-content: center;
     user-select: none; -webkit-tap-highlight-color: transparent;
     transition: background 0.1s, transform 0.08s;
@@ -147,7 +148,7 @@
   .nb-clr { background: #2a1a3a; color: #c084fc; border-color: #4a2a5a; font-size: 15px; font-weight: 900; }
 
   /* 下段 */
-  #bottom-row { display: flex; flex-direction: row; gap: 4px; flex-shrink: 0; }
+  #bottom-row { display: flex; flex-direction: row; gap: 6px; flex-shrink: 0; }
 
   /* TOTAL */
   #total-block {
