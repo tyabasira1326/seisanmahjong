@@ -273,7 +273,9 @@
           </colgroup>
           <thead>
             <tr id="header-row">
-              <th></th>
+              <th style="padding:0">
+                <button onclick="confirmClear()" style="background:#3a1a1a;border:1px solid #5a2a2a;border-radius:4px;color:#ff8a80;font-size:10px;font-weight:900;padding:2px 4px;cursor:pointer;width:100%;height:100%;font-family:inherit;-webkit-tap-highlight-color:transparent;">AC</button>
+              </th>
               <!-- 名前ヘッダーはJS生成 -->
               <th class="c-bd">場代</th>
               <th class="c-dif" style="color:var(--muted);font-size:10px">差異</th>
@@ -364,7 +366,7 @@ const st = {
   chips:    {A:0,B:0,C:0,D:0,E:0},
   bd:       {},
   bdManual: {},
-  names:    {A:'いのう',B:'B',C:'C',D:'D',E:'E'},
+  names:    {A:'ちやば',B:'B',C:'C',D:'D',E:'E'},
   pay: 0, nin: 4, rate: 100, cr: 500,
   act:  null,
   buf:  '',
@@ -566,18 +568,8 @@ function renderFoot(){
     td.addEventListener('click',()=>activate({type:'chip',p}));
     tr2.appendChild(td);
   });
-  // 場代列：ACボタン
-  const tdAC = document.createElement('td');
-  tdAC.className = 'c-bd';
-  tdAC.style.textAlign = 'center';
-  tdAC.style.cursor = 'pointer';
-  tdAC.style.padding = '0';
-  const acBtn = document.createElement('button');
-  acBtn.textContent = 'AC';
-  acBtn.style.cssText = 'background:#3a1a1a;border:1px solid #5a2a2a;border-radius:4px;color:#ff8a80;font-size:11px;font-weight:900;padding:2px 5px;cursor:pointer;width:100%;height:100%;font-family:inherit;-webkit-tap-highlight-color:transparent;';
-  acBtn.addEventListener('click', ()=>confirmClear());
-  tdAC.appendChild(acBtn);
-  tr2.appendChild(tdAC);
+  // 場代列（空）
+  tr2.appendChild(document.createElement('td'));
   // 差異列：チップA〜E合計
   const chipSum = PL.reduce((s,p)=>s+st.chips[p], 0);
   const tdChipDif = document.createElement('td'); tdChipDif.className='c-dif';
@@ -811,24 +803,44 @@ document.getElementById('name-dialog').addEventListener('click',e=>{
 });
 
 // ===== AC: 全消去 =====
+const DEFAULT_NAMES = {A:'ちやば',B:'B',C:'C',D:'D',E:'E'};
+
 function confirmClear(){
-  if(!confirm('入力データを消去しますか？')) return;
-  // 全データリセット
-  for(let r=1;r<=ROWS;r++){
-    st.sc[r]       = {A:null,B:null,C:null,D:null,E:null};
-    st.bd[r]       = null;
-    st.bdManual[r] = false;
-  }
-  st.chips    = {A:0,B:0,C:0,D:0,E:0};
-  st.pay  = 0;
-  st.nin  = 4;
-  st.rate = 100;
-  st.cr   = 500;
-  st.act  = null;
-  st.buf  = '';
-  // 名前はリセットしない
-  localStorage.removeItem(SAVE_KEY);
-  render();
+  // カスタムYES/NOダイアログ
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:200;';
+  overlay.innerHTML = `
+    <div style="background:#16213e;border:2px solid #e94560;border-radius:12px;padding:20px 24px;text-align:center;min-width:220px;">
+      <div style="color:#eaeaea;font-size:14px;font-weight:700;margin-bottom:16px;">入力データを消去しますか？</div>
+      <div style="display:flex;gap:12px;justify-content:center;">
+        <button id="ac-yes" style="background:#3a1a1a;border:1.5px solid #e94560;border-radius:8px;color:#ff8a80;font-size:14px;font-weight:900;padding:8px 24px;cursor:pointer;font-family:inherit;">YES</button>
+        <button id="ac-no"  style="background:#1e3a5f;border:1.5px solid #2a3a5a;border-radius:8px;color:#eaeaea;font-size:14px;font-weight:700;padding:8px 24px;cursor:pointer;font-family:inherit;">NO</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  overlay.querySelector('#ac-yes').addEventListener('click', ()=>{
+    // 全データリセット
+    for(let r=1;r<=ROWS;r++){
+      st.sc[r]       = {A:null,B:null,C:null,D:null,E:null};
+      st.bd[r]       = null;
+      st.bdManual[r] = false;
+    }
+    st.chips = {A:0,B:0,C:0,D:0,E:0};
+    st.pay  = 0;
+    st.nin  = 4;
+    st.rate = 100;
+    st.cr   = 500;
+    st.act  = null;
+    st.buf  = '';
+    Object.assign(st.names, DEFAULT_NAMES);
+    localStorage.removeItem(SAVE_KEY);
+    document.body.removeChild(overlay);
+    render();
+  });
+  overlay.querySelector('#ac-no').addEventListener('click', ()=>{
+    document.body.removeChild(overlay);
+  });
 }
 const SAVE_KEY = 'seisan_mahjong_v1';
 
